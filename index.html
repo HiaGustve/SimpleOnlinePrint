@@ -2,8 +2,37 @@
 <html lang="zh">
   <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>线上打印服务站</title>
+    <style>
+      .box{
+        border:2px dotted rgb(254, 206, 247);
+        border-radius: 8px;
+      }
+      .highlight{
+        color: red;
+        font-weight: bold;
+      }
+      .button{
+        text-align: center;
+        vertical-align: middle;
+        background-color: #efefef;
+        border: 1.6px outset rgb(0, 0, 0);
+        border-radius: 8px;
+        padding: 0.2em;
+        font-size: 15px;
+        cursor: pointer; /* 鼠标悬浮在上时变为手状 */
+      }
+      .none{
+        display: none;
+      }
+      #PreView img
+      {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+    </style>
   </head>
 
   <body>
@@ -20,17 +49,17 @@
           src = "/SimpleOnlinePrint/打印机图片.png" 
           alt = "打印机图片" 
           width = "70px" 
-          style = "vertical-align: middle;"   //这是垂直居中
-        />
+          style = "vertical-align: middle;"
+        >
       </h1>
     </div>
-
     <div style="
         display: flex;
         justify-content: center;
         align-items: center;
       ">
-      <div style="
+      <div class="box"
+          style="
           background-color: azure;
           flex: 1;
           display: flex;
@@ -39,20 +68,174 @@
           align-items: center;
           margin: 30px 10px auto 50px;
         ">
-        <div style="
-            background-color: bisque;
-            width: 100%;
-            aspect-ratio: 1000 / 1414;
-            vertical-align: middle;
-          ">
+        <div 
+            id="PreView"
+            style="
+              display: flex;
+              background-color: bisque;
+              width: 80%;
+              aspect-ratio: 1000 / 1414;
+              vertical-align: middle;
+              align-items: center;
+              justify-content: center;"
+          >
           这里是文件预览
         </div>
         <div style="
-            background-color: bisque;
             margin-top: 10px;
+            max-width: 80%;
+            background-color: bisque;
+            vertical-align: middle;
           ">
-          这里是上传文件按钮
+          <div 
+              id="FileUpButton"
+              class="button"
+              onclick="document.getElementById('document').click();"
+            >
+            请选择你需要打印的文件
+          </div>
+          <input
+            type="file"
+            id="document"
+            name="document"
+            accept=".pdf, .docx, .doc, .pptx, .ppt, .txt, image/*"
+            class="none"
+            onchange="FileSelect(this)"
+          />
+          <div 
+              title="再次点击取消选择"
+              id="FileNameDisplay"
+              style="
+                color: black;
+                text-align: center;
+                cursor: pointer;
+                overflow-wrap: break-word;
+              "
+              onclick="ClearFile()"
+            >
+            
+          </div>
         </div>
+        <script>
+          function FileSelect(inputElement)
+          {
+            const file = inputElement.files;
+            const FileUpButtonDiv = document.getElementById('FileUpButton');
+            const FileNameDisplayDiv = document.getElementById('FileNameDisplay');
+            const PreViewDiv = document.getElementById('PreView')
+            if(file.length === 1)
+            {
+              let FileName = file[0].name;
+              FileUpButtonDiv.style.display = 'none';
+              FileNameDisplayDiv.textContent = FileName;
+              FileNameDisplayDiv.style.display = 'block';
+
+              if(file[0].type.startsWith('image/'))
+              {
+                const Read = new FileReader();
+                Read.onload = (e) =>
+                {
+                  const img = document.createElement('img');
+                  img.src = e.target.result;
+                  PreViewDiv.innerHTML = '';
+                  PreViewDiv.appendChild(img);
+                }
+                Read.readAsDataURL(file[0]);
+              }
+              else if(FileName.endsWith('.txt'))
+              {
+                const Read = new FileReader();
+                Read.onload = (e) =>
+                {
+                  const TextBuffer = e.target.result;
+                  
+                  let textContent = '';
+                  const encodings = ['utf-8', 'shift-jis', 'gbk'];
+                  for (let enc of encodings)
+                  {
+                    try
+                    {
+                      const text = new TextDecoder(enc).decode(TextBuffer);
+                      if (!text.includes('�'))
+                      {
+                        textContent = text;
+                        break;
+                      }
+                    } catch(e) {}
+                  }
+
+                  PreViewDiv.innerHTML = '';
+
+                  const iframe = document.createElement('iframe');
+                  iframe.style.width = '100%';
+                  iframe.style.height = '100%';
+                  iframe.style.border = '1px solid #ccc';
+                  iframe.style.overflow = 'auto'; 
+
+                  const blob = new Blob([textContent], { type: 'text/plain' });
+                  const blobURL = URL.createObjectURL(blob);
+                  iframe.src = blobURL;
+                  PreViewDiv.appendChild(iframe);
+                }
+                Read.readAsArrayBuffer(file[0]);
+              }
+              else if(FileName.endsWith('.pdf'))
+              {
+                const Read = new FileReader();
+                PreViewDiv.innerHTML = '';
+              
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = '1px solid #ccc';
+                iframe.style.overflow = 'auto'; 
+
+                const blobURL = URL.createObjectURL(file[0]);
+                iframe.src = blobURL;
+                PreViewDiv.appendChild(iframe);
+              }
+              else if(FileName.endsWith('.doc') || FileName.endsWith('.docx'))
+              {
+                  PreViewDiv.innerHTML = '';
+
+                  const iframe = document.createElement('iframe');
+                  iframe.style.width = '100%';
+                  iframe.style.height = '100%';
+                  iframe.style.border = '1px solid #ccc';
+                  
+                  const fileURL = URL.createObjectURL(file[0]);
+
+                  // ❗关键：拼到 Office 在线预览
+                  iframe.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileURL)}`;
+                  
+                  PreViewDiv.appendChild(iframe);
+                // 等后端吧
+              }
+              else if(FileName.endsWith('.ppt') || FileName.endsWith('.pptx'))
+              {
+                // 等后端吧
+              }
+            }
+            else
+            {
+              FileUpButtonDiv.style.display = 'block';
+              FileNameDisplayDiv.style.display = 'none';
+            }
+          }
+          function ClearFile()
+          {
+            const File = document.getElementById('document');
+            const FileUpButtonDiv = document.getElementById('FileUpButton');
+            const FileNameDisplayDiv = document.getElementById('FileNameDisplay');
+            const newFile = File.cloneNode(true);
+            const PreViewDiv = document.getElementById('PreView')
+            File.parentNode.replaceChild(newFile, File)
+            FileUpButtonDiv.style.display = 'block';
+            FileNameDisplayDiv.textContent = '';
+            FileNameDisplayDiv.style.display = 'none';
+            PreViewDiv.innerHTML = '这里是文件预览';
+          }
+        </script>
       </div>
       <div style="
           background-color: azure;
@@ -63,14 +246,35 @@
           align-items: center;
           margin: 30px 50px auto 10px;
         ">
-        <div style="
-            background-color: bisque;
-            width: 80%;
+        <div class="box" 
+            style="
+            padding-left: 1em;
+            padding-right: 1em;
+            width: 90%;
+            box-sizing: border-box;
           ">
-          <p>这里是打印说明</p>
-          <p>这里是打印说明</p>
-          <p>这里是打印说明</p>
-          <p>这里是打印说明</p>
+          <p>1. 本店仅支持黑白打印DOC(X)、PPT(X)、PDF、TXT文件，及PNG、JPG等图片格式，TXT及图片文件在打印时使用默认设置。<span class="highlight">不支持XLSX、EPUB等文件</span>，不支持彩色打印，也不支持复印。<br>
+            &emsp;&thinsp;如需打印XLSX文件，可以在打印预览界面自行调整好格式后，选择导出为PDF再来打印。</p>
+          <p>2. 关于价格：<span class="highlight">0.14元/张</span>。单面打印和双面打印都是这个价格。</p>
+          <p style="
+              padding-left: 1.4em;
+              text-indent: -1.4em;
+            ">
+            3. 关于配送费用：店主本人在九号宿舍楼。<br>
+            (1) 自取 0元：打印好之后，我会放在八九号宿舍楼门口的外卖桌上，<span class="highlight">Gustave0822@yeah.net</span>会向你预留的邮箱发送消息，你自己来拿。<br>
+            (2) 配送：<br>
+            &emsp;① 0元：如果你的收货地址在八九号宿舍楼<span class="highlight">内</span>，我将会提供免费配送服务；<br>
+            &emsp;② <span class="highlight">5角</span>：如果你的收货地址在八九号宿舍楼<span class="highlight">外</span>，请选择好详细地址，我将为你送货上门。<br>
+            &emsp;&emsp;注：若是教学楼和图书馆，将会送到具体教室；若是宿舍，将会放在宿舍门口。
+          </p>
+          <p style="
+              padding-left: 8em;
+              text-indent: -8em;
+            ">
+            4. 关于配送时间：介于本学期店主没有早八和晚课，<br>
+            DAY1 08:00 ~ DAY1 17:00的订单，会于DAY1 18:00前配送完成；<br>
+            DAY1 17:00 ~ DAY2 08:00的订单，会于DAY2 09:00前配送完成。
+          </p>
         </div>
         <div style="
             background-color: darkcyan;
@@ -87,6 +291,44 @@
             123
           </div>
         </div>
+
+
+        <div style="
+            width: 90%;
+            background-color: darkcyan;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+          ">
+          <div style="
+              background-color: bisque;
+              flex: 1;
+              flex-direction: column;
+              text-align: center;
+            ">
+            <label>
+              <input type="radio" name="isDeliver" id="pickup">
+              自取
+            </label>
+            <input 
+              type="text"
+              placeholder="请输入地址"
+            >
+            
+          </div>
+
+          <div style="
+              background-color: bisque;
+              flex: 1;
+              flex-direction: column;
+              text-align: center;
+            ">
+            <label><input type="radio" name="isDeliver">配送</label>
+          </div>
+        </div>
+
+
         <p style="background-color: bisque;">提交按钮</p>
         <div style="
             width: 40%;
@@ -114,5 +356,4 @@
       </div>
     </div>
   </body>
-
 </html>
